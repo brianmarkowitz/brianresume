@@ -296,17 +296,14 @@ function App() {
             nodes={flowNodes}
             edges={flowEdges}
             nodeTypes={nodeTypes}
-            nodesDraggable={false}
+            elementsSelectable
             nodesConnectable={false}
             minZoom={0.35}
             maxZoom={1.5}
+            panOnDrag={false}
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             onNodeMouseEnter={(_, node) => setHoveredNodeId(node.id)}
             onNodeMouseLeave={() => setHoveredNodeId(null)}
-            onPaneClick={() => {
-              setSelectedNodeId(null)
-              setHoveredNodeId(null)
-            }}
           >
             <Background gap={26} color="#dbe3ec" />
             <Controls showInteractive={false} />

@@ -193,6 +193,10 @@ a:focus-visible {
   border-radius: 8px;
 }
 
+.react-flow__nodes {
+  pointer-events: all !important;
+}
+
 .arch-node {
   width: 100%;
   text-align: left;
