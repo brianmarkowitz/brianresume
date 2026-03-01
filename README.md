@@ -20,3 +20,7 @@ Interactive resume website that presents Brian Markowitz's experience as a syste
 ## Deployment
 
 This repo is configured for Vercel deployment via GitHub integration. Production deploys target `main`.
+
+## ERD
+
+Converted ERD for the visual graph data model: [`docs/resume-erd.md`](docs/resume-erd.md).

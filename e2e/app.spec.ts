@@ -1,18 +1,27 @@
 import { expect, test } from '@playwright/test'
 
-test('loads architecture view and opens node details', async ({ page }) => {
-  await page.goto('/')
+test('ERD browser loads selected table and supports relationship navigation', async ({ page }) => {
+  await page.goto('/?table=employee')
 
-  await expect(page.getByRole('heading', { name: /principal data architect and functional manager/i })).toBeVisible()
-  await expect(page.getByRole('tab', { name: /architecture view/i })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('navigation', { name: /primary/i })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Standard Resume' })).toBeVisible()
+  await expect(page.getByText('Control Mode')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: 'employee' })).toBeVisible()
+  await expect(page.getByText('Primary profile record for the resume owner.')).toBeVisible()
 
-  await page
-    .locator('button.arch-node[aria-label="iDPCC / CEIRR Platform"]')
-    .evaluate((element) => (element as HTMLButtonElement).click())
+  await page.getByTestId('rf__edge-employee-projects').dispatchEvent('click')
 
-  await expect(page.getByRole('heading', { name: /iDPCC \/ CEIRR Platform/i }).first()).toBeVisible()
-  await expect(page.getByRole('heading', { name: /impact metrics/i }).first()).toBeVisible()
+  await expect(page).toHaveURL(/table=projects/)
+  await expect(page.getByRole('heading', { level: 2, name: 'projects' })).toBeVisible()
 
-  await page.getByRole('tab', { name: /impact view/i }).click()
-  await expect(page).toHaveURL(/mode=impact/)
+  await page.locator('.erd-chip-button', { hasText: 'employee' }).first().click()
+
+  await expect(page).toHaveURL(/table=employee/)
+  await expect(page.getByRole('heading', { level: 2, name: 'employee' })).toBeVisible()
+
+  await page.getByRole('tab', { name: 'Standard Resume' }).click()
+
+  await expect(page).toHaveURL(/view=resume/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Brian Markowitz' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: 'Experience' })).toBeVisible()
 })
