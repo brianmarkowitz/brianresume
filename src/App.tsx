@@ -191,6 +191,8 @@ function App() {
         type: 'architectureNode',
         position: NODE_POSITIONS[node.id],
         draggable: false,
+        selectable: true,
+        focusable: true,
         data: {
           id: node.id,
           kind: node.kind,
@@ -296,9 +298,11 @@ function App() {
             nodeTypes={nodeTypes}
             nodesDraggable={false}
             nodesConnectable={false}
-            elementsSelectable={false}
             minZoom={0.35}
             maxZoom={1.5}
+            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+            onNodeMouseEnter={(_, node) => setHoveredNodeId(node.id)}
+            onNodeMouseLeave={() => setHoveredNodeId(null)}
             onPaneClick={() => {
               setSelectedNodeId(null)
               setHoveredNodeId(null)

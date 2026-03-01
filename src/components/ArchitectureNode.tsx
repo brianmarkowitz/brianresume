@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react'
+import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react'
 import { Handle, Position, type NodeProps } from 'reactflow'
 import clsx from 'clsx'
 import type { NodeKind } from '../data/resumeGraph'
@@ -23,6 +23,15 @@ export function ArchitectureNode({ data }: NodeProps<ArchitectureNodeData>) {
     }
   }
 
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    data.onSelect(data.id)
+  }
+
+  const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+  }
+
   return (
     <>
       <Handle type="source" id="s-top" position={Position.Top} className="hidden-handle" />
@@ -36,7 +45,8 @@ export function ArchitectureNode({ data }: NodeProps<ArchitectureNodeData>) {
           'is-dimmed': data.isDimmed,
           'is-connected': data.isConnected,
         })}
-        onClick={() => data.onSelect(data.id)}
+        onClick={handleClick}
+        onPointerDown={handlePointerDown}
         onMouseEnter={() => data.onHover(data.id)}
         onMouseLeave={() => data.onHover(null)}
         onFocus={() => data.onHover(data.id)}
