@@ -28,7 +28,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'employee',
     name: 'employee',
-    position: { x: 20, y: 24 },
+    position: { x: 20, y: 20 },
     columns: [
       { name: 'employee_id', type: 'int', isPrimaryKey: true },
       { name: 'first_name', type: 'varchar(50)' },
@@ -45,44 +45,9 @@ export const erdTables: ErdTable[] = [
     ],
   },
   {
-    id: 'resume',
-    name: 'resume',
-    position: { x: 390, y: 24 },
-    columns: [
-      { name: 'resume_id', type: 'int', isPrimaryKey: true },
-      { name: 'employee_id', type: 'int', isForeignKey: true },
-      { name: 'file_name', type: 'varchar(100)' },
-      { name: 'file_type', type: 'varchar(20)' },
-      { name: 'raw_text', type: 'longtext' },
-      { name: 'extraction_status', type: 'varchar(50)' },
-      { name: 'upload_date', type: 'timestamp' },
-      { name: 'processed_date', type: 'timestamp' },
-    ],
-  },
-  {
-    id: 'skills',
-    name: 'skills',
-    position: { x: 760, y: 24 },
-    columns: [
-      { name: 'skill_id', type: 'int', isPrimaryKey: true },
-      { name: 'skill_name', type: 'varchar(100)' },
-      { name: 'skill_category', type: 'varchar(50)' },
-    ],
-  },
-  {
-    id: 'employee_skills',
-    name: 'employee_skills',
-    position: { x: 1130, y: 24 },
-    columns: [
-      { name: 'employee_id', type: 'int', isPrimaryKey: true, isForeignKey: true },
-      { name: 'skill_id', type: 'int', isPrimaryKey: true, isForeignKey: true },
-      { name: 'proficiency', type: 'varchar(50)' },
-    ],
-  },
-  {
     id: 'experience',
     name: 'experience',
-    position: { x: 20, y: 458 },
+    position: { x: 20, y: 280 },
     columns: [
       { name: 'experience_id', type: 'int', isPrimaryKey: true },
       { name: 'employee_id', type: 'int', isForeignKey: true },
@@ -99,7 +64,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'projects',
     name: 'projects',
-    position: { x: 390, y: 458 },
+    position: { x: 20, y: 540 },
     columns: [
       { name: 'project_id', type: 'int', isPrimaryKey: true },
       { name: 'employee_id', type: 'int', isForeignKey: true },
@@ -113,9 +78,29 @@ export const erdTables: ErdTable[] = [
     ],
   },
   {
+    id: 'skills',
+    name: 'skills',
+    position: { x: 20, y: 800 },
+    columns: [
+      { name: 'skill_id', type: 'int', isPrimaryKey: true },
+      { name: 'skill_name', type: 'varchar(100)' },
+      { name: 'skill_category', type: 'varchar(50)' },
+    ],
+  },
+  {
+    id: 'employee_skills',
+    name: 'employee_skills',
+    position: { x: 280, y: 800 },
+    columns: [
+      { name: 'employee_id', type: 'int', isPrimaryKey: true, isForeignKey: true },
+      { name: 'skill_id', type: 'int', isPrimaryKey: true, isForeignKey: true },
+      { name: 'proficiency', type: 'varchar(50)' },
+    ],
+  },
+  {
     id: 'certifications',
     name: 'certifications',
-    position: { x: 760, y: 458 },
+    position: { x: 280, y: 20 },
     columns: [
       { name: 'certification_id', type: 'int', isPrimaryKey: true },
       { name: 'employee_id', type: 'int', isForeignKey: true },
@@ -129,7 +114,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'publications',
     name: 'publications',
-    position: { x: 1130, y: 458 },
+    position: { x: 280, y: 280 },
     columns: [
       { name: 'publication_id', type: 'int', isPrimaryKey: true },
       { name: 'employee_id', type: 'int', isForeignKey: true },
@@ -143,7 +128,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'awards',
     name: 'awards',
-    position: { x: 390, y: 865 },
+    position: { x: 280, y: 540 },
     columns: [
       { name: 'award_id', type: 'int', isPrimaryKey: true },
       { name: 'employee_id', type: 'int', isForeignKey: true },
@@ -156,14 +141,6 @@ export const erdTables: ErdTable[] = [
 ]
 
 export const erdRelations: ErdRelation[] = [
-  {
-    id: 'employee-resume',
-    source: 'employee',
-    target: 'resume',
-    sourceColumn: 'employee_id',
-    targetColumn: 'employee_id',
-    cardinality: '1:N',
-  },
   {
     id: 'employee-experience',
     source: 'employee',
