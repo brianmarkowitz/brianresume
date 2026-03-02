@@ -8,6 +8,13 @@ interface ErdInspectorProps {
   onSelectTable: (tableId: string) => void
 }
 
+function formatTableLabel(tableName: string): string {
+  return tableName
+    .split('_')
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(' ')
+}
+
 function RecordCard({ record }: { record: BrowseRecord }) {
   return (
     <article className="erd-record-card">
@@ -29,7 +36,11 @@ export function ErdInspector({ table, content, relatedTables, onSelectTable }: E
   if (!table) {
     return (
       <aside className="erd-inspector" aria-live="polite">
-        <h2>ERD Browser</h2>
+        <div className="erd-resume-context">
+          <p className="panel-kicker">Brian Markowitz Resume</p>
+          <p className="erd-resume-context-copy">Interactive resume entity browser.</p>
+        </div>
+        <h2>Resume Browser</h2>
         <p>Select any table in the ERD to browse resume records and navigate table relationships.</p>
       </aside>
     )
@@ -37,9 +48,14 @@ export function ErdInspector({ table, content, relatedTables, onSelectTable }: E
 
   return (
     <aside className="erd-inspector" aria-live="polite">
+      <div className="erd-resume-context">
+        <p className="panel-kicker">Brian Markowitz Resume</p>
+        <p className="erd-resume-context-copy">Interactive resume entity browser.</p>
+      </div>
+
       <div className="erd-inspector-head">
         <p className="panel-kicker">Table</p>
-        <h2>{table.name}</h2>
+        <h2>{formatTableLabel(table.name)}</h2>
         <p>{content?.description ?? 'No record preview is defined for this table.'}</p>
       </div>
 
@@ -55,7 +71,7 @@ export function ErdInspector({ table, content, relatedTables, onSelectTable }: E
                 data-testid={`related-table-${relatedTable.id}`}
                 onClick={() => onSelectTable(relatedTable.id)}
               >
-                {relatedTable.name}
+                {formatTableLabel(relatedTable.name)}
               </button>
             ))
           ) : (

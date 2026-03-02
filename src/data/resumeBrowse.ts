@@ -25,7 +25,7 @@ export const tableBrowseContent: Record<string, TableBrowseContent> = {
           { label: 'Email', value: 'bmarko@gmail.com' },
           { label: 'Phone', value: '(301) 555-0142' },
           { label: 'LinkedIn', value: 'linkedin.com/in/brian-markowitz-126709' },
-          { label: 'GitHub', value: 'github.com/bmarko' },
+          { label: 'GitHub', value: 'github.com/brianmarkowitz' },
           { label: 'Google Scholar', value: 'scholar.google.com/citations?user=bmarko' },
           {
             label: 'Summary',

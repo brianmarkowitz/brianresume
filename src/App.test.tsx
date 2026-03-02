@@ -8,16 +8,14 @@ describe('App', () => {
     window.history.replaceState(null, '', '/')
   })
 
-  it('renders the ERD shell and browser prompt', () => {
+  it('renders the resume story view by default', () => {
     render(<App />)
 
     expect(screen.getByRole('navigation', { name: /primary/i })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /erd controller/i })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /standard resume/i })).toBeInTheDocument()
-    expect(screen.getByText(/control mode/i)).toBeInTheDocument()
-    expect(screen.getByText(/table click: browse records/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/entity relationship diagram workspace/i)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: 'employee' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /brian markowitz/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Career Timeline' })).toBeInTheDocument()
+    expect(screen.getByText(/resume story/i)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /erd explorer/i }).length).toBeGreaterThan(0)
   })
 
   it('opens table details from URL and supports relationship navigation', async () => {
@@ -25,24 +23,26 @@ describe('App', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    expect(screen.getByRole('heading', { level: 2, name: 'employee' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /resume story/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/entity relationship diagram workspace/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Employee' })).toBeInTheDocument()
     expect(screen.getByTestId('related-table-resume')).toBeInTheDocument()
 
     await user.click(screen.getByTestId('related-table-resume'))
 
-    expect(screen.getByRole('heading', { level: 2, name: 'resume' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Resume' })).toBeInTheDocument()
     expect(screen.getByText(/resume ingestion and extraction history for uploaded source files/i)).toBeInTheDocument()
   })
 
-  it('switches to the standard resume view from the navbar', async () => {
+  it('switches from resume story to ERD explorer from the navbar', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(screen.getByRole('tab', { name: /standard resume/i }))
+    await user.click(screen.getAllByRole('button', { name: /erd explorer/i })[0])
 
-    expect(screen.getByRole('heading', { level: 1, name: /brian markowitz/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: 'Experience' })).toBeInTheDocument()
-    expect(screen.getByText(/chronological roles and major responsibilities/i)).toBeInTheDocument()
-    expect(window.location.search).toMatch(/view=resume/)
+    expect(screen.getByRole('button', { name: /resume story/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/entity relationship diagram workspace/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Employee' })).toBeInTheDocument()
+    expect(window.location.search).toMatch(/table=employee/)
   })
 })

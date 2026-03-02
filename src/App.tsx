@@ -2,9 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import {
   Background,
-  Controls,
   MarkerType,
-  MiniMap,
   ReactFlow,
   type Edge,
   type Node,
@@ -14,6 +12,7 @@ import 'reactflow/dist/style.css'
 import { ErdInspector } from './components/ErdInspector'
 import { ErdTableNode, type ErdTableNodeData } from './components/ErdTableNode'
 import { StandardResume } from './components/StandardResume'
+import { ThemeToggle } from './components/ThemeToggle'
 import { erdRelations, erdTables, type ErdRelation, type ErdTable } from './data/erdSchema'
 import { tableBrowseContent } from './data/resumeBrowse'
 
@@ -40,11 +39,22 @@ function readTableFromUrl(): string | null {
 
 function readViewFromUrl(): ViewMode {
   if (typeof window === 'undefined') {
+    return 'resume'
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  const explicitView = params.get('view')
+
+  if (explicitView === 'erd' || explicitView === 'resume') {
+    return explicitView
+  }
+
+  const tableId = params.get('table')
+  if (tableId && tableById.has(tableId)) {
     return 'erd'
   }
 
-  const view = new URLSearchParams(window.location.search).get('view')
-  return view === 'resume' ? 'resume' : 'erd'
+  return 'resume'
 }
 
 function edgeHandles(sourceId: string, targetId: string) {
@@ -87,7 +97,7 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
 
-    if (selectedTableId) {
+    if (viewMode === 'erd' && selectedTableId) {
       params.set('table', selectedTableId)
     } else {
       params.delete('table')
@@ -152,38 +162,6 @@ function App() {
 
   const content = selectedTableId ? tableBrowseContent[selectedTableId] ?? null : null
 
-  const highlighted = useMemo(() => {
-    const highlightedTableIds = new Set<string>()
-    const highlightedRelationIds = new Set<string>()
-
-    const pivotTableIds = [selectedTableId].filter(Boolean) as string[]
-
-    for (const pivotId of pivotTableIds) {
-      highlightedTableIds.add(pivotId)
-
-      for (const relation of erdRelations) {
-        if (relation.source === pivotId || relation.target === pivotId) {
-          highlightedRelationIds.add(relation.id)
-          highlightedTableIds.add(relation.source)
-          highlightedTableIds.add(relation.target)
-        }
-      }
-    }
-
-    if (selectedRelationId) {
-      highlightedRelationIds.add(selectedRelationId)
-      const selectedRelation = erdRelations.find((relation) => relation.id === selectedRelationId)
-      if (selectedRelation) {
-        highlightedTableIds.add(selectedRelation.source)
-        highlightedTableIds.add(selectedRelation.target)
-      }
-    }
-
-    return { highlightedTableIds, highlightedRelationIds }
-  }, [selectedRelationId, selectedTableId])
-
-  const focusContextActive = Boolean(selectedTableId || selectedRelationId)
-
   const handleSelectTable = useCallback((tableId: string) => {
     setSelectedTableId(tableId)
     setSelectedRelationId(null)
@@ -194,11 +172,12 @@ function App() {
   }, [])
 
   const flowNodes = useMemo<Array<Node<ErdTableNodeData>>>(() => {
+    const activePath = selectedRelationId ? erdRelations.find((relation) => relation.id === selectedRelationId) : null
+
     return erdTables.map((table) => {
       const width = table.id === 'employee' ? 360 : table.id === 'employee_skills' ? 290 : 340
       const isSelected = table.id === selectedTableId
-      const isConnected = highlighted.highlightedTableIds.has(table.id)
-      const isDimmed = focusContextActive && !isSelected && !isConnected
+      const isConnected = Boolean(activePath && (table.id === activePath.source || table.id === activePath.target))
 
       return {
         id: table.id,
@@ -213,22 +192,19 @@ function App() {
           columns: table.columns,
           isSelected,
           isConnected,
-          isDimmed,
+          isDimmed: false,
           onSelect: handleSelectTable,
           onHover: handleHoverTable,
         },
         style: { width },
       }
     })
-  }, [focusContextActive, handleHoverTable, handleSelectTable, highlighted.highlightedTableIds, selectedTableId])
+  }, [handleHoverTable, handleSelectTable, selectedRelationId, selectedTableId])
 
   const flowEdges = useMemo<Array<Edge>>(() => {
     return erdRelations.map((relation) => {
       const handles = edgeHandles(relation.source, relation.target)
-      const isHighlighted = highlighted.highlightedRelationIds.has(relation.id)
       const isSelected = selectedRelationId === relation.id
-      const isDimmed = focusContextActive && !isHighlighted
-      const color = isDimmed ? '#9aa8bc' : isSelected ? '#0f5a94' : '#4f647d'
 
       return {
         id: relation.id,
@@ -240,93 +216,86 @@ function App() {
         label: relation.cardinality,
         labelStyle: {
           fontSize: 11,
-          fill: '#334155',
-          fontFamily: '"IBM Plex Mono", monospace',
+          fill: 'var(--slate-500)',
+          fontFamily: 'var(--font-mono)',
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
           width: 16,
           height: 16,
-          color,
+          color: isSelected ? 'var(--accent)' : 'var(--slate-500)',
         },
         className: clsx('erd-edge', {
-          'is-highlighted': isHighlighted,
           'is-selected': isSelected,
-          'is-dimmed': isDimmed,
         }),
         style: {
-          stroke: color,
-          strokeWidth: isSelected ? 3.1 : isHighlighted ? 2.6 : 1.7,
-          opacity: isDimmed ? 0.36 : 0.95,
+          stroke: isSelected ? 'var(--accent)' : 'var(--line-strong)',
+          strokeWidth: isSelected ? 3.1 : 1.9,
+          opacity: 0.92,
         },
       }
     })
-  }, [focusContextActive, highlighted.highlightedRelationIds, selectedRelationId])
+  }, [selectedRelationId])
 
   return (
-    <div className="page-shell erd-page" id="top">
+    <div
+      className={clsx('page-shell erd-page', {
+        'is-erd-view': viewMode === 'erd',
+        'is-resume-view': viewMode === 'resume',
+      })}
+      id="top"
+    >
       <nav className="erd-navbar" aria-label="Primary">
-        <a href="#top" className="erd-brand">
-          Brian Markowitz
-        </a>
-        <div className="erd-view-toggle" role="tablist" aria-label="View switch">
-          <button
-            type="button"
-            role="tab"
-            className={clsx('erd-view-button', { active: viewMode === 'erd' })}
-            aria-selected={viewMode === 'erd'}
-            onClick={() => setViewMode('erd')}
-          >
-            ERD Controller
-          </button>
-          <button
-            type="button"
-            role="tab"
-            className={clsx('erd-view-button', { active: viewMode === 'resume' })}
-            aria-selected={viewMode === 'resume'}
-            onClick={() => setViewMode('resume')}
-          >
-            Standard Resume
-          </button>
+        <div className="erd-brand-block">
+          <span className="erd-brand-kicker">Interactive Resume</span>
+          <a href="#top" className="erd-brand">
+            Brian Markowitz
+          </a>
         </div>
-        <div className="erd-social-links" aria-label="Social links">
-          <a
-            href="https://www.linkedin.com/in/brian-markowitz-126709/"
-            target="_blank"
-            rel="noreferrer"
-            className="erd-icon-link linkedin"
-            aria-label="LinkedIn"
-            title="LinkedIn"
+        <div className="erd-right-actions">
+          <button
+            type="button"
+            className="erd-nav-switch"
+            onClick={() => setViewMode(viewMode === 'erd' ? 'resume' : 'erd')}
+            aria-label={viewMode === 'erd' ? 'Open resume story view' : 'Open ERD explorer'}
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4.98 3.5C4.98 4.88 3.86 6 2.48 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5ZM.28 8.1h4.4V24H.28V8.1ZM8.42 8.1h4.21v2.17h.06c.58-1.11 2.03-2.29 4.18-2.29 4.47 0 5.29 2.94 5.29 6.77V24h-4.4v-7.98c0-1.9-.03-4.34-2.64-4.34-2.64 0-3.04 2.06-3.04 4.2V24H8.42V8.1Z" />
-            </svg>
-          </a>
-          <a
-            href="https://github.com/bmarko"
-            target="_blank"
-            rel="noreferrer"
-            className="erd-icon-link github"
-            aria-label="GitHub"
-            title="GitHub"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.1c-3.34.73-4.04-1.42-4.04-1.42-.55-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.83 1.23 1.83 1.23 1.08 1.84 2.82 1.31 3.5 1 .1-.78.42-1.31.77-1.61-2.67-.3-5.48-1.33-5.48-5.93 0-1.31.47-2.39 1.23-3.23-.12-.3-.53-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.3-1.55 3.3-1.23 3.3-1.23.65 1.65.24 2.87.12 3.17.77.84 1.23 1.92 1.23 3.23 0 4.61-2.82 5.62-5.5 5.92.43.37.82 1.1.82 2.22v3.3c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z" />
-            </svg>
-          </a>
+            {viewMode === 'erd' ? 'Resume Story' : 'ERD Explorer'}
+          </button>
+          <div className="erd-social-links" aria-label="Social links">
+            <ThemeToggle />
+            <a
+              href="https://www.linkedin.com/in/brian-markowitz-126709/"
+              target="_blank"
+              rel="noreferrer"
+              className="erd-icon-link linkedin"
+              aria-label="LinkedIn"
+              title="LinkedIn"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4.98 3.5C4.98 4.88 3.86 6 2.48 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5ZM.28 8.1h4.4V24H.28V8.1ZM8.42 8.1h4.21v2.17h.06c.58-1.11 2.03-2.29 4.18-2.29 4.47 0 5.29 2.94 5.29 6.77V24h-4.4v-7.98c0-1.9-.03-4.34-2.64-4.34-2.64 0-3.04 2.06-3.04 4.2V24H8.42V8.1Z" />
+              </svg>
+            </a>
+            <a
+              href="https://github.com/brianmarkowitz"
+              target="_blank"
+              rel="noreferrer"
+              className="erd-icon-link github"
+              aria-label="GitHub"
+              title="GitHub"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.1c-3.34.73-4.04-1.42-4.04-1.42-.55-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.83 1.23 1.83 1.23 1.08 1.84 2.82 1.31 3.5 1 .1-.78.42-1.31.77-1.61-2.67-.3-5.48-1.33-5.48-5.93 0-1.31.47-2.39 1.23-3.23-.12-.3-.53-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.3-1.55 3.3-1.23 3.3-1.23.65 1.65.24 2.87.12 3.17.77.84 1.23 1.92 1.23 3.23 0 4.61-2.82 5.62-5.5 5.92.43.37.82 1.1.82 2.22v3.3c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z" />
+              </svg>
+            </a>
+          </div>
         </div>
       </nav>
 
       {viewMode === 'resume' ? (
-        <StandardResume />
+        <StandardResume onOpenErd={() => setViewMode('erd')} />
       ) : (
         <section className="erd-layout" aria-label="Entity relationship diagram workspace" id="diagram">
           <div className="erd-canvas-wrap" aria-label="Entity relationship diagram">
-            <div className="erd-canvas-hint">
-              <strong>Control Mode</strong>
-              <span>Table click: browse records</span>
-              <span>Edge click: move to related table</span>
-            </div>
             {activeRelation ? (
               <div className="erd-active-relation" aria-live="polite">
                 Active Path: {activeRelation.source}.{activeRelation.sourceColumn} -&gt; {activeRelation.target}.
@@ -341,8 +310,13 @@ function App() {
               nodeTypes={nodeTypes}
               minZoom={0.12}
               maxZoom={1.4}
-              panOnDrag
+              panOnDrag={false}
+              panOnScroll={false}
+              zoomOnScroll={false}
+              zoomOnPinch={false}
               zoomOnDoubleClick={false}
+              nodesDraggable={false}
+              selectionOnDrag={false}
               nodesConnectable={false}
               elementsSelectable
               onNodeClick={(_, node) => {
@@ -367,9 +341,7 @@ function App() {
                 setSelectedRelationId(null)
               }}
             >
-              <Background gap={24} color="#d7e0ea" />
-              <Controls showInteractive={false} />
-              <MiniMap pannable zoomable position="bottom-right" nodeBorderRadius={8} />
+              <Background gap={24} color="var(--grid-major)" />
             </ReactFlow>
           </div>
 
