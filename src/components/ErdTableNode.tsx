@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import clsx from 'clsx'
 import { Handle, Position, type NodeProps } from 'reactflow'
 import type { ErdColumn } from '../data/erdSchema'
@@ -99,7 +99,11 @@ function TableIcon({ tableId }: { tableId: string }) {
   }
 }
 
+const VISIBLE_COLUMNS = 4
+
 export function ErdTableNode({ data }: NodeProps<ErdTableNodeData>) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
@@ -108,6 +112,9 @@ export function ErdTableNode({ data }: NodeProps<ErdTableNodeData>) {
   }
 
   const displayName = formatTableName(data.name)
+  const visibleColumns = isExpanded ? data.columns : data.columns.slice(0, VISIBLE_COLUMNS)
+  const hasMoreColumns = data.columns.length > VISIBLE_COLUMNS
+  const hiddenCount = data.columns.length - VISIBLE_COLUMNS
 
   return (
     <div
@@ -141,7 +148,7 @@ export function ErdTableNode({ data }: NodeProps<ErdTableNodeData>) {
         <span className="erd-table-title">{displayName}</span>
       </div>
       <ul className="erd-columns">
-        {data.columns.map((column) => (
+        {visibleColumns.map((column) => (
           <li key={column.name} className="erd-column-row">
             <div className="erd-column-name-wrap">
               {column.isPrimaryKey ? <span className="key-badge pk">PK</span> : null}
@@ -151,6 +158,34 @@ export function ErdTableNode({ data }: NodeProps<ErdTableNodeData>) {
             <span className="erd-column-type">{column.type}</span>
           </li>
         ))}
+        {hasMoreColumns && !isExpanded ? (
+          <li className="erd-column-row erd-more-row">
+            <button
+              type="button"
+              className="erd-expand-button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsExpanded(true)
+              }}
+            >
+              +{hiddenCount} more fields
+            </button>
+          </li>
+        ) : null}
+        {isExpanded && hasMoreColumns ? (
+          <li className="erd-column-row erd-more-row">
+            <button
+              type="button"
+              className="erd-expand-button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsExpanded(false)
+              }}
+            >
+              Show less
+            </button>
+          </li>
+        ) : null}
       </ul>
     </div>
   )
