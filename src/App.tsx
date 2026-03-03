@@ -10,6 +10,7 @@ import {
   type FitViewOptions,
   type ReactFlowInstance,
   type Edge,
+  type NodeChange,
   type Node,
   type NodeTypes,
   type XYPosition,
@@ -37,6 +38,16 @@ const MIN_INSPECTOR_WIDTH = 420
 const SPLIT_RATIO_STORAGE_KEY = 'interactive-resume:erd-split-ratio'
 const NODE_POSITION_STORAGE_KEY = 'interactive-resume:erd-node-positions'
 const FIT_VIEW_OPTIONS: FitViewOptions = { padding: 0.02, maxZoom: 0.96 }
+const DEFAULT_NODE_POSITIONS = Object.fromEntries(
+  erdTables.map((table) => [table.id, { x: table.position.x, y: table.position.y }]),
+) as Record<string, XYPosition>
+type ArrangementPresetId = 'schema' | 'grid' | 'lanes' | 'custom'
+const ARRANGEMENT_LABELS: Record<ArrangementPresetId, string> = {
+  schema: 'Schema',
+  grid: 'Grid',
+  lanes: 'Lanes',
+  custom: 'Custom',
+}
 
 function readTableFromUrl(): string | null {
   if (typeof window === 'undefined') {
@@ -101,6 +112,78 @@ function getCanvasRatioBounds(totalWidth: number): { min: number; max: number } 
   return { min, max }
 }
 
+function getNextArrangementId(current: ArrangementPresetId): Exclude<ArrangementPresetId, 'custom'> {
+  if (current === 'schema') {
+    return 'grid'
+  }
+
+  if (current === 'grid') {
+    return 'lanes'
+  }
+
+  return 'schema'
+}
+
+function buildArrangementPositions(layout: Exclude<ArrangementPresetId, 'custom'>): Record<string, XYPosition> {
+  if (layout === 'schema') {
+    return Object.fromEntries(
+      Object.entries(DEFAULT_NODE_POSITIONS).map(([id, position]) => [id, { x: position.x, y: position.y }]),
+    )
+  }
+
+  if (layout === 'grid') {
+    const columns = 3
+    const startX = 56
+    const startY = 56
+    const colGap = 438
+    const rowGap = 322
+
+    return Object.fromEntries(
+      erdTables.map((table, index) => {
+        const row = Math.floor(index / columns)
+        const col = index % columns
+        return [
+          table.id,
+          {
+            x: startX + col * colGap,
+            y: startY + row * rowGap,
+          },
+        ]
+      }),
+    )
+  }
+
+  const topRow = ['skills', 'employee', 'certifications', 'publications']
+  const bottomRow = ['employee_skills', 'projects', 'experience', 'awards']
+  const startX = 36
+  const startY = 76
+  const colGap = 424
+  const rowGap = 388
+  const positions: Record<string, XYPosition> = {}
+
+  topRow.forEach((tableId, index) => {
+    positions[tableId] = {
+      x: startX + index * colGap,
+      y: startY,
+    }
+  })
+
+  bottomRow.forEach((tableId, index) => {
+    positions[tableId] = {
+      x: startX + index * colGap,
+      y: startY + rowGap,
+    }
+  })
+
+  for (const table of erdTables) {
+    if (!positions[table.id]) {
+      positions[table.id] = { x: table.position.x, y: table.position.y }
+    }
+  }
+
+  return positions
+}
+
 function readNodePositionsFromStorage(): Record<string, XYPosition> {
   if (typeof window === 'undefined') {
     return {}
@@ -160,6 +243,10 @@ function App() {
   const [layoutWidth, setLayoutWidth] = useState(0)
   const [isResizingPanes, setIsResizingPanes] = useState(false)
   const [canvasRatio, setCanvasRatio] = useState<number>(() => readSplitRatioFromStorage())
+  const [arrangementPreset, setArrangementPreset] = useState<ArrangementPresetId>(() => {
+    const storedPositions = readNodePositionsFromStorage()
+    return Object.keys(storedPositions).length ? 'custom' : 'schema'
+  })
   const layoutRef = useRef<HTMLElement | null>(null)
   const flowRef = useRef<ReactFlowInstance | null>(null)
   const fitFrameRef = useRef<number | null>(null)
@@ -464,7 +551,41 @@ function App() {
     })
   }, [handleHoverTable, handleSelectTable])
 
-  const [draggableNodes, , onDraggableNodesChange] = useNodesState<ErdTableNodeData>(initialFlowNodes)
+  const [draggableNodes, setDraggableNodes, onDraggableNodesChange] = useNodesState<ErdTableNodeData>(initialFlowNodes)
+  const handleNodesChange = useCallback(
+    (changes: Array<NodeChange>) => {
+      if (changes.some((change) => change.type === 'position')) {
+        setArrangementPreset('custom')
+      }
+      onDraggableNodesChange(changes)
+    },
+    [onDraggableNodesChange],
+  )
+
+  const handleApplyArrangement = useCallback(
+    (layout: Exclude<ArrangementPresetId, 'custom'>) => {
+      const positions = buildArrangementPositions(layout)
+      setDraggableNodes((nodes) =>
+        nodes.map((node) => ({
+          ...node,
+          position: positions[node.id] ?? node.position,
+        })),
+      )
+      setArrangementPreset(layout)
+      setSelectedRelationId(null)
+    },
+    [setDraggableNodes],
+  )
+
+  const handleResetArrangement = useCallback(() => {
+    handleApplyArrangement('schema')
+  }, [handleApplyArrangement])
+
+  const nextArrangementId = useMemo(() => getNextArrangementId(arrangementPreset), [arrangementPreset])
+  const arrangeButtonLabel = useMemo(
+    () => `Arrange: ${ARRANGEMENT_LABELS[nextArrangementId]}`,
+    [nextArrangementId],
+  )
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -476,6 +597,14 @@ function App() {
     )
     window.localStorage.setItem(NODE_POSITION_STORAGE_KEY, JSON.stringify(positions))
   }, [draggableNodes])
+
+  useEffect(() => {
+    if (viewMode !== 'erd') {
+      return
+    }
+
+    scheduleFitView(0)
+  }, [draggableNodes, scheduleFitView, viewMode])
 
   const flowNodes = useMemo<Array<Node<ErdTableNodeData>>>(() => {
     const activePath = selectedRelationId ? erdRelations.find((relation) => relation.id === selectedRelationId) : null
@@ -613,6 +742,25 @@ function App() {
           id="diagram"
         >
           <div className="erd-canvas-wrap" aria-label="Entity relationship diagram">
+            <div className="erd-layout-controls" role="toolbar" aria-label="ERD arrangement controls">
+              <button
+                type="button"
+                className="erd-layout-button"
+                onClick={() => handleApplyArrangement(nextArrangementId)}
+                aria-label="Arrange nodes in a different layout"
+              >
+                {arrangeButtonLabel}
+              </button>
+              <button
+                type="button"
+                className="erd-layout-button"
+                onClick={handleResetArrangement}
+                aria-label="Reset node arrangement"
+              >
+                Reset
+              </button>
+              <span className="erd-layout-status">Layout: {ARRANGEMENT_LABELS[arrangementPreset]}</span>
+            </div>
             {activeRelation ? (
               <div className="erd-active-relation" aria-live="polite">
                 Active Path: {activeRelation.source}.{activeRelation.sourceColumn} -&gt; {activeRelation.target}.
@@ -636,7 +784,13 @@ function App() {
               selectionOnDrag={false}
               nodesConnectable={false}
               elementsSelectable
-              onNodesChange={onDraggableNodesChange}
+              onNodesChange={handleNodesChange}
+              onNodeDrag={() => {
+                scheduleFitView(0)
+              }}
+              onNodeDragStop={() => {
+                scheduleFitView(0)
+              }}
               onNodeClick={(_, node) => {
                 setSelectedTableId(node.id)
                 setSelectedRelationId(null)
@@ -666,15 +820,15 @@ function App() {
               <Background
                 id="erd-grid-minor"
                 variant={BackgroundVariant.Lines}
-                gap={18}
-                lineWidth={0.45}
+                gap={16}
+                lineWidth={0.35}
                 color="var(--erd-grid-minor)"
               />
               <Background
                 id="erd-grid-major"
                 variant={BackgroundVariant.Lines}
-                gap={72}
-                lineWidth={0.8}
+                gap={64}
+                lineWidth={0.7}
                 color="var(--erd-grid-major)"
               />
             </ReactFlow>

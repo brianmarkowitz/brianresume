@@ -25,6 +25,8 @@ describe('App', () => {
     expect(screen.getByLabelText(/entity relationship diagram workspace/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Employee' })).toBeInTheDocument()
     expect(screen.getByRole('separator', { name: /resize diagram and resume panes/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /arrange nodes in a different layout/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reset node arrangement/i })).toBeInTheDocument()
   })
 
   it('opens table details from URL and supports relationship navigation', async () => {
