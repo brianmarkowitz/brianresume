@@ -5,6 +5,8 @@ import {
   Background,
   MarkerType,
   ReactFlow,
+  type FitViewOptions,
+  type ReactFlowInstance,
   type Edge,
   type Node,
   type NodeTypes,
@@ -31,6 +33,7 @@ const DEFAULT_CANVAS_RATIO = 0.6
 const MIN_CANVAS_WIDTH = 620
 const MIN_INSPECTOR_WIDTH = 420
 const SPLIT_RATIO_STORAGE_KEY = 'interactive-resume:erd-split-ratio'
+const FIT_VIEW_OPTIONS: FitViewOptions = { padding: 0.045, maxZoom: 0.96 }
 
 function readTableFromUrl(): string | null {
   if (typeof window === 'undefined') {
@@ -125,6 +128,8 @@ function App() {
   const [isResizingPanes, setIsResizingPanes] = useState(false)
   const [canvasRatio, setCanvasRatio] = useState<number>(() => readSplitRatioFromStorage())
   const layoutRef = useRef<HTMLElement | null>(null)
+  const flowRef = useRef<ReactFlowInstance | null>(null)
+  const fitFrameRef = useRef<number | null>(null)
 
   const clampCanvasRatio = useCallback((ratio: number, totalWidth: number) => {
     const { min, max } = getCanvasRatioBounds(totalWidth)
@@ -170,6 +175,27 @@ function App() {
 
   const canResizePanes = viewMode === 'erd' && layoutWidth >= STACKED_LAYOUT_BREAKPOINT
   const splitterBounds = useMemo(() => getCanvasRatioBounds(layoutWidth), [layoutWidth])
+  const scheduleFitView = useCallback(
+    (duration = 120) => {
+      if (typeof window === 'undefined') {
+        return
+      }
+
+      if (fitFrameRef.current !== null) {
+        window.cancelAnimationFrame(fitFrameRef.current)
+      }
+
+      fitFrameRef.current = window.requestAnimationFrame(() => {
+        fitFrameRef.current = null
+        flowRef.current?.fitView({
+          ...FIT_VIEW_OPTIONS,
+          duration: isResizingPanes ? 0 : duration,
+        })
+      })
+    },
+    [isResizingPanes],
+  )
+
   const erdLayoutStyle = useMemo<CSSProperties | undefined>(() => {
     if (!canResizePanes) {
       return undefined
@@ -303,6 +329,22 @@ function App() {
     document.body.classList.toggle('is-resizing-erd-split', isResizingPanes)
     return () => document.body.classList.remove('is-resizing-erd-split')
   }, [isResizingPanes])
+
+  useEffect(() => {
+    if (viewMode !== 'erd') {
+      return
+    }
+
+    scheduleFitView()
+  }, [canvasRatio, layoutWidth, scheduleFitView, viewMode])
+
+  useEffect(() => {
+    return () => {
+      if (fitFrameRef.current !== null) {
+        window.cancelAnimationFrame(fitFrameRef.current)
+      }
+    }
+  }, [])
 
   const selectedTable = useMemo<ErdTable | null>(() => {
     if (!selectedTableId) {
@@ -504,7 +546,7 @@ function App() {
             ) : null}
             <ReactFlow
               fitView
-              fitViewOptions={{ padding: 0.045, maxZoom: 0.96 }}
+              fitViewOptions={FIT_VIEW_OPTIONS}
               nodes={flowNodes}
               edges={flowEdges}
               nodeTypes={nodeTypes}
@@ -539,6 +581,10 @@ function App() {
               }}
               onPaneClick={() => {
                 setSelectedRelationId(null)
+              }}
+              onInit={(instance) => {
+                flowRef.current = instance
+                scheduleFitView(0)
               }}
             >
               <Background gap={24} color="var(--grid-major)" />
