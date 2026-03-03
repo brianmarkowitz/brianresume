@@ -885,6 +885,11 @@ a:focus-visible {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  .erd-edge .react-flow__edge-path {
+    animation: none !important;
+    stroke-dasharray: none !important;
+  }
 }
 
 /* ERD view */
@@ -1597,20 +1602,30 @@ body.is-resizing-erd-split * {
 }
 
 .erd-edge .react-flow__edge-path {
-  stroke-dasharray: 3 3;
+  stroke-dasharray: 8 6;
+  stroke-linecap: round;
+  animation: erd-edge-flow 2.2s linear infinite;
 }
 
 .erd-edge.is-highlighted .react-flow__edge-path {
-  stroke-dasharray: 6 4;
+  stroke-dasharray: 10 6;
+  animation-duration: 1.6s;
 }
 
 .erd-edge.is-selected .react-flow__edge-path {
-  stroke-dasharray: 10 3;
+  stroke-dasharray: 13 6;
+  animation-duration: 1.05s;
 }
 
 .erd-edge .react-flow__edge-text {
   font-family: var(--font-mono);
   letter-spacing: 0.02em;
+}
+
+@keyframes erd-edge-flow {
+  to {
+    stroke-dashoffset: -28;
+  }
 }
 
 .erd-inspector {
