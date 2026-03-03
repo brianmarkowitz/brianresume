@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import clsx from 'clsx'
 import {
   Background,
@@ -24,6 +25,13 @@ const tableById = new Map(erdTables.map((table) => [table.id, table]))
 const tablePositionById = new Map(erdTables.map((table) => [table.id, table.position]))
 type ViewMode = 'erd' | 'resume'
 
+const STACKED_LAYOUT_BREAKPOINT = 1300
+const SPLITTER_WIDTH = 14
+const DEFAULT_CANVAS_RATIO = 0.6
+const MIN_CANVAS_WIDTH = 620
+const MIN_INSPECTOR_WIDTH = 420
+const SPLIT_RATIO_STORAGE_KEY = 'interactive-resume:erd-split-ratio'
+
 function readTableFromUrl(): string | null {
   if (typeof window === 'undefined') {
     return null
@@ -39,7 +47,7 @@ function readTableFromUrl(): string | null {
 
 function readViewFromUrl(): ViewMode {
   if (typeof window === 'undefined') {
-    return 'resume'
+    return 'erd'
   }
 
   const params = new URLSearchParams(window.location.search)
@@ -54,7 +62,37 @@ function readViewFromUrl(): ViewMode {
     return 'erd'
   }
 
-  return 'resume'
+  return 'erd'
+}
+
+function readSplitRatioFromStorage(): number {
+  if (typeof window === 'undefined') {
+    return DEFAULT_CANVAS_RATIO
+  }
+
+  const stored = window.localStorage.getItem(SPLIT_RATIO_STORAGE_KEY)
+  if (!stored) {
+    return DEFAULT_CANVAS_RATIO
+  }
+
+  const parsed = Number.parseFloat(stored)
+  return Number.isFinite(parsed) ? parsed : DEFAULT_CANVAS_RATIO
+}
+
+function getCanvasRatioBounds(totalWidth: number): { min: number; max: number } {
+  const availableWidth = totalWidth - SPLITTER_WIDTH
+  if (availableWidth <= 0) {
+    return { min: DEFAULT_CANVAS_RATIO, max: DEFAULT_CANVAS_RATIO }
+  }
+
+  const min = MIN_CANVAS_WIDTH / availableWidth
+  const max = 1 - MIN_INSPECTOR_WIDTH / availableWidth
+
+  if (min >= max) {
+    return { min: DEFAULT_CANVAS_RATIO, max: DEFAULT_CANVAS_RATIO }
+  }
+
+  return { min, max }
 }
 
 function edgeHandles(sourceId: string, targetId: string) {
@@ -83,6 +121,123 @@ function App() {
   const [selectedTableId, setSelectedTableId] = useState<string | null>(() => readTableFromUrl() ?? 'employee')
   const [selectedRelationId, setSelectedRelationId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>(() => readViewFromUrl())
+  const [layoutWidth, setLayoutWidth] = useState(0)
+  const [isResizingPanes, setIsResizingPanes] = useState(false)
+  const [canvasRatio, setCanvasRatio] = useState<number>(() => readSplitRatioFromStorage())
+  const layoutRef = useRef<HTMLElement | null>(null)
+
+  const clampCanvasRatio = useCallback((ratio: number, totalWidth: number) => {
+    const { min, max } = getCanvasRatioBounds(totalWidth)
+    return Math.min(Math.max(ratio, min), max)
+  }, [])
+
+  const syncLayoutWidth = useCallback(() => {
+    const layoutElement = layoutRef.current
+    if (!layoutElement) {
+      return
+    }
+
+    const nextWidth = layoutElement.getBoundingClientRect().width
+    setLayoutWidth(nextWidth)
+
+    if (nextWidth >= STACKED_LAYOUT_BREAKPOINT) {
+      setCanvasRatio((current) => clampCanvasRatio(current, nextWidth))
+    }
+  }, [clampCanvasRatio])
+
+  const updateCanvasRatioFromClientX = useCallback(
+    (clientX: number) => {
+      const layoutElement = layoutRef.current
+      if (!layoutElement) {
+        return
+      }
+
+      const rect = layoutElement.getBoundingClientRect()
+      if (rect.width < STACKED_LAYOUT_BREAKPOINT) {
+        return
+      }
+
+      const availableWidth = rect.width - SPLITTER_WIDTH
+      if (availableWidth <= 0) {
+        return
+      }
+
+      const nextRatio = (clientX - rect.left - SPLITTER_WIDTH / 2) / availableWidth
+      setCanvasRatio(clampCanvasRatio(nextRatio, rect.width))
+    },
+    [clampCanvasRatio],
+  )
+
+  const canResizePanes = viewMode === 'erd' && layoutWidth >= STACKED_LAYOUT_BREAKPOINT
+  const splitterBounds = useMemo(() => getCanvasRatioBounds(layoutWidth), [layoutWidth])
+  const erdLayoutStyle = useMemo<CSSProperties | undefined>(() => {
+    if (!canResizePanes) {
+      return undefined
+    }
+
+    return {
+      gridTemplateColumns: `minmax(${MIN_CANVAS_WIDTH}px, ${(canvasRatio * 100).toFixed(2)}%) ${SPLITTER_WIDTH}px minmax(${MIN_INSPECTOR_WIDTH}px, 1fr)`,
+    }
+  }, [canResizePanes, canvasRatio])
+
+  const handleSplitterPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!canResizePanes) {
+        return
+      }
+
+      event.preventDefault()
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setIsResizingPanes(true)
+      updateCanvasRatioFromClientX(event.clientX)
+    },
+    [canResizePanes, updateCanvasRatioFromClientX],
+  )
+
+  const handleSplitterPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!isResizingPanes) {
+        return
+      }
+
+      event.preventDefault()
+      updateCanvasRatioFromClientX(event.clientX)
+    },
+    [isResizingPanes, updateCanvasRatioFromClientX],
+  )
+
+  const handleSplitterPointerUp = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+
+    setIsResizingPanes(false)
+  }, [])
+
+  const handleSplitterKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+      if (!canResizePanes) {
+        return
+      }
+
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault()
+        const delta = event.key === 'ArrowLeft' ? -0.02 : 0.02
+        setCanvasRatio((current) => clampCanvasRatio(current + delta, layoutWidth))
+      }
+
+      if (event.key === 'Home') {
+        event.preventDefault()
+        setCanvasRatio(splitterBounds.min)
+      }
+
+      if (event.key === 'End') {
+        event.preventDefault()
+        setCanvasRatio(splitterBounds.max)
+      }
+    },
+    [canResizePanes, clampCanvasRatio, layoutWidth, splitterBounds.max, splitterBounds.min],
+  )
 
   useEffect(() => {
     const onPopState = () => {
@@ -112,6 +267,42 @@ function App() {
     const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`
     window.history.replaceState(null, '', next)
   }, [selectedTableId, viewMode])
+
+  useEffect(() => {
+    if (viewMode !== 'erd') {
+      return
+    }
+
+    syncLayoutWidth()
+    const layoutElement = layoutRef.current
+    if (!layoutElement) {
+      return
+    }
+
+    if (typeof window.ResizeObserver === 'function') {
+      const observer = new window.ResizeObserver(() => {
+        syncLayoutWidth()
+      })
+      observer.observe(layoutElement)
+      return () => observer.disconnect()
+    }
+
+    window.addEventListener('resize', syncLayoutWidth)
+    return () => window.removeEventListener('resize', syncLayoutWidth)
+  }, [syncLayoutWidth, viewMode])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(SPLIT_RATIO_STORAGE_KEY, canvasRatio.toFixed(4))
+  }, [canvasRatio])
+
+  useEffect(() => {
+    document.body.classList.toggle('is-resizing-erd-split', isResizingPanes)
+    return () => document.body.classList.remove('is-resizing-erd-split')
+  }, [isResizingPanes])
 
   const selectedTable = useMemo<ErdTable | null>(() => {
     if (!selectedTableId) {
@@ -256,7 +447,10 @@ function App() {
           <button
             type="button"
             className="erd-nav-switch"
-            onClick={() => setViewMode(viewMode === 'erd' ? 'resume' : 'erd')}
+            onClick={() => {
+              setIsResizingPanes(false)
+              setViewMode((currentViewMode) => (currentViewMode === 'erd' ? 'resume' : 'erd'))
+            }}
             aria-label={viewMode === 'erd' ? 'Open resume story view' : 'Open ERD explorer'}
           >
             {viewMode === 'erd' ? 'Resume Story' : 'ERD Explorer'}
@@ -294,7 +488,13 @@ function App() {
       {viewMode === 'resume' ? (
         <StandardResume onOpenErd={() => setViewMode('erd')} />
       ) : (
-        <section className="erd-layout" aria-label="Entity relationship diagram workspace" id="diagram">
+        <section
+          ref={layoutRef}
+          className={clsx('erd-layout', { 'is-resizing': isResizingPanes })}
+          style={erdLayoutStyle}
+          aria-label="Entity relationship diagram workspace"
+          id="diagram"
+        >
           <div className="erd-canvas-wrap" aria-label="Entity relationship diagram">
             {activeRelation ? (
               <div className="erd-active-relation" aria-live="polite">
@@ -344,6 +544,24 @@ function App() {
               <Background gap={24} color="var(--grid-major)" />
             </ReactFlow>
           </div>
+
+          <button
+            type="button"
+            className={clsx('erd-pane-divider', { 'is-active': isResizingPanes })}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize diagram and resume panes"
+            aria-valuemin={Math.round(splitterBounds.min * 100)}
+            aria-valuemax={Math.round(splitterBounds.max * 100)}
+            aria-valuenow={Math.round(canvasRatio * 100)}
+            onPointerDown={handleSplitterPointerDown}
+            onPointerMove={handleSplitterPointerMove}
+            onPointerUp={handleSplitterPointerUp}
+            onPointerCancel={handleSplitterPointerUp}
+            onLostPointerCapture={() => setIsResizingPanes(false)}
+            onKeyDown={handleSplitterKeyDown}
+            disabled={!canResizePanes}
+          />
 
           <div id="browser">
             <ErdInspector

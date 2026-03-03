@@ -1147,10 +1147,106 @@ a:focus-visible {
 
 .erd-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 500px;
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) 14px minmax(420px, 500px);
+  gap: 0.58rem;
   align-items: start;
   min-height: 0;
+  transition: grid-template-columns 160ms ease;
+}
+
+.erd-layout > #browser {
+  min-width: 0;
+  display: flex;
+}
+
+.erd-pane-divider {
+  border: none;
+  background: transparent;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border-radius: 999px;
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+  align-self: stretch;
+}
+
+.erd-pane-divider::before {
+  content: '';
+  position: absolute;
+  inset: 0.08rem 0.16rem;
+  border-radius: 999px;
+  border: 1px solid #b9cce1;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(225, 236, 247, 0.84)),
+    repeating-linear-gradient(180deg, rgba(31, 66, 102, 0.08) 0 1px, transparent 1px 3px);
+  box-shadow: 0 8px 16px rgba(31, 66, 102, 0.1);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.erd-pane-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 56px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background:
+    repeating-linear-gradient(180deg, rgba(23, 58, 92, 0.64) 0 2px, transparent 2px 5px),
+    rgba(255, 255, 255, 0.34);
+  opacity: 0.7;
+  transition: opacity 160ms ease;
+}
+
+.erd-pane-divider:hover::before,
+.erd-pane-divider:focus-visible::before,
+.erd-pane-divider.is-active::before {
+  border-color: #5f84aa;
+  box-shadow: 0 10px 22px rgba(16, 51, 83, 0.16);
+}
+
+.erd-pane-divider:hover::after,
+.erd-pane-divider:focus-visible::after,
+.erd-pane-divider.is-active::after {
+  opacity: 1;
+}
+
+.erd-pane-divider:focus-visible {
+  outline: none;
+}
+
+.erd-pane-divider:focus-visible::before {
+  box-shadow: 0 0 0 2px rgba(15, 90, 148, 0.35), 0 10px 22px rgba(16, 51, 83, 0.16);
+}
+
+[data-theme="dark"] .erd-pane-divider::before {
+  border: 1px solid var(--line-strong);
+  background:
+    linear-gradient(180deg, rgba(43, 43, 43, 0.95), rgba(25, 25, 25, 0.92)),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .erd-pane-divider::after {
+  background:
+    repeating-linear-gradient(180deg, rgba(245, 158, 11, 0.65) 0 2px, transparent 2px 5px),
+    rgba(245, 158, 11, 0.1);
+}
+
+[data-theme="dark"] .erd-pane-divider:hover::before,
+[data-theme="dark"] .erd-pane-divider:focus-visible::before,
+[data-theme="dark"] .erd-pane-divider.is-active::before {
+  border-color: var(--accent);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.55);
+}
+
+body.is-resizing-erd-split,
+body.is-resizing-erd-split * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 
 .erd-canvas-wrap {
@@ -2612,7 +2708,12 @@ a:focus-visible {
 @media (max-width: 1300px) {
   .erd-layout {
     grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
     min-height: auto;
+  }
+
+  .erd-pane-divider {
+    display: none;
   }
 
   .erd-inspector {
