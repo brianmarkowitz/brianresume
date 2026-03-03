@@ -28,7 +28,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'employee',
     name: 'employee',
-    position: { x: 400, y: 20 },
+    position: { x: 500, y: 40 },
     columns: [
       { name: 'employee_id', type: 'int', isPrimaryKey: true },
       { name: 'first_name', type: 'varchar(50)' },
@@ -47,7 +47,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'skills',
     name: 'skills',
-    position: { x: 20, y: 20 },
+    position: { x: 40, y: 40 },
     columns: [
       { name: 'skill_id', type: 'int', isPrimaryKey: true },
       { name: 'skill_name', type: 'varchar(100)' },
@@ -57,7 +57,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'employee_skills',
     name: 'employee_skills',
-    position: { x: 20, y: 200 },
+    position: { x: 40, y: 340 },
     columns: [
       { name: 'employee_id', type: 'int', isPrimaryKey: true, isForeignKey: true },
       { name: 'skill_id', type: 'int', isPrimaryKey: true, isForeignKey: true },
@@ -67,7 +67,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'experience',
     name: 'experience',
-    position: { x: 400, y: 340 },
+    position: { x: 500, y: 660 },
     columns: [
       { name: 'experience_id', type: 'int', isPrimaryKey: true },
       { name: 'employee_id', type: 'int', isForeignKey: true },
@@ -84,7 +84,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'projects',
     name: 'projects',
-    position: { x: 20, y: 340 },
+    position: { x: 40, y: 660 },
     columns: [
       { name: 'project_id', type: 'int', isPrimaryKey: true },
       { name: 'employee_id', type: 'int', isForeignKey: true },
@@ -100,7 +100,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'certifications',
     name: 'certifications',
-    position: { x: 780, y: 20 },
+    position: { x: 960, y: 40 },
     columns: [
       { name: 'certification_id', type: 'int', isPrimaryKey: true },
       { name: 'employee_id', type: 'int', isForeignKey: true },
@@ -114,7 +114,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'publications',
     name: 'publications',
-    position: { x: 780, y: 200 },
+    position: { x: 960, y: 340 },
     columns: [
       { name: 'publication_id', type: 'int', isPrimaryKey: true },
       { name: 'employee_id', type: 'int', isForeignKey: true },
@@ -128,7 +128,7 @@ export const erdTables: ErdTable[] = [
   {
     id: 'awards',
     name: 'awards',
-    position: { x: 780, y: 340 },
+    position: { x: 960, y: 660 },
     columns: [
       { name: 'award_id', type: 'int', isPrimaryKey: true },
       { name: 'employee_id', type: 'int', isForeignKey: true },

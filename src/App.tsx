@@ -3,6 +3,7 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent a
 import clsx from 'clsx'
 import {
   Background,
+  BackgroundVariant,
   MarkerType,
   ReactFlow,
   type FitViewOptions,
@@ -33,7 +34,7 @@ const DEFAULT_CANVAS_RATIO = 0.6
 const MIN_CANVAS_WIDTH = 620
 const MIN_INSPECTOR_WIDTH = 420
 const SPLIT_RATIO_STORAGE_KEY = 'interactive-resume:erd-split-ratio'
-const FIT_VIEW_OPTIONS: FitViewOptions = { padding: 0.045, maxZoom: 0.96 }
+const FIT_VIEW_OPTIONS: FitViewOptions = { padding: 0.02, maxZoom: 0.96 }
 
 function readTableFromUrl(): string | null {
   if (typeof window === 'undefined') {
@@ -587,7 +588,20 @@ function App() {
                 scheduleFitView(0)
               }}
             >
-              <Background gap={24} color="var(--grid-major)" />
+              <Background
+                id="erd-grid-minor"
+                variant={BackgroundVariant.Lines}
+                gap={24}
+                lineWidth={0.7}
+                color="var(--erd-grid-minor)"
+              />
+              <Background
+                id="erd-grid-major"
+                variant={BackgroundVariant.Lines}
+                gap={96}
+                lineWidth={1.15}
+                color="var(--erd-grid-major)"
+              />
             </ReactFlow>
           </div>
 
