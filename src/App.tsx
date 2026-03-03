@@ -6,11 +6,13 @@ import {
   BackgroundVariant,
   MarkerType,
   ReactFlow,
+  useNodesState,
   type FitViewOptions,
   type ReactFlowInstance,
   type Edge,
   type Node,
   type NodeTypes,
+  type XYPosition,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { ErdInspector } from './components/ErdInspector'
@@ -25,7 +27,6 @@ const nodeTypes: NodeTypes = {
 }
 
 const tableById = new Map(erdTables.map((table) => [table.id, table]))
-const tablePositionById = new Map(erdTables.map((table) => [table.id, table.position]))
 type ViewMode = 'erd' | 'resume'
 
 const STACKED_LAYOUT_BREAKPOINT = 1300
@@ -34,6 +35,7 @@ const DEFAULT_CANVAS_RATIO = 0.6
 const MIN_CANVAS_WIDTH = 620
 const MIN_INSPECTOR_WIDTH = 420
 const SPLIT_RATIO_STORAGE_KEY = 'interactive-resume:erd-split-ratio'
+const NODE_POSITION_STORAGE_KEY = 'interactive-resume:erd-node-positions'
 const FIT_VIEW_OPTIONS: FitViewOptions = { padding: 0.02, maxZoom: 0.96 }
 
 function readTableFromUrl(): string | null {
@@ -99,10 +101,40 @@ function getCanvasRatioBounds(totalWidth: number): { min: number; max: number } 
   return { min, max }
 }
 
-function edgeHandles(sourceId: string, targetId: string) {
-  const source = tablePositionById.get(sourceId)
-  const target = tablePositionById.get(targetId)
+function readNodePositionsFromStorage(): Record<string, XYPosition> {
+  if (typeof window === 'undefined') {
+    return {}
+  }
 
+  const raw = window.localStorage.getItem(NODE_POSITION_STORAGE_KEY)
+  if (!raw) {
+    return {}
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const positions: Record<string, XYPosition> = {}
+
+    for (const table of erdTables) {
+      const candidate = parsed[table.id]
+      if (!candidate || typeof candidate !== 'object') {
+        continue
+      }
+
+      const x = (candidate as { x?: unknown }).x
+      const y = (candidate as { y?: unknown }).y
+      if (typeof x === 'number' && Number.isFinite(x) && typeof y === 'number' && Number.isFinite(y)) {
+        positions[table.id] = { x, y }
+      }
+    }
+
+    return positions
+  } catch {
+    return {}
+  }
+}
+
+function edgeHandles(source: XYPosition | undefined, target: XYPosition | undefined) {
   if (!source || !target) {
     return { sourceHandle: 's-right', targetHandle: 't-left' }
   }
@@ -405,22 +437,63 @@ function App() {
     // Hover state is intentionally no-op to avoid graph-wide hover flicker.
   }, [])
 
-  const flowNodes = useMemo<Array<Node<ErdTableNodeData>>>(() => {
-    const activePath = selectedRelationId ? erdRelations.find((relation) => relation.id === selectedRelationId) : null
-
+  const initialFlowNodes = useMemo<Array<Node<ErdTableNodeData>>>(() => {
+    const nodePositions = readNodePositionsFromStorage()
     return erdTables.map((table) => {
       const width = table.id === 'employee' ? 360 : table.id === 'employee_skills' ? 290 : 340
-      const isSelected = table.id === selectedTableId
-      const isConnected = Boolean(activePath && (table.id === activePath.source || table.id === activePath.target))
 
       return {
         id: table.id,
         type: 'erdTable',
-        position: table.position,
-        draggable: false,
+        position: nodePositions[table.id] ?? table.position,
+        draggable: true,
         selectable: true,
         focusable: true,
         data: {
+          id: table.id,
+          name: table.name,
+          columns: table.columns,
+          isSelected: false,
+          isConnected: false,
+          isDimmed: false,
+          onSelect: handleSelectTable,
+          onHover: handleHoverTable,
+        },
+        style: { width },
+      }
+    })
+  }, [handleHoverTable, handleSelectTable])
+
+  const [draggableNodes, , onDraggableNodesChange] = useNodesState<ErdTableNodeData>(initialFlowNodes)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const positions = Object.fromEntries(
+      draggableNodes.map((node) => [node.id, { x: node.position.x, y: node.position.y }]),
+    )
+    window.localStorage.setItem(NODE_POSITION_STORAGE_KEY, JSON.stringify(positions))
+  }, [draggableNodes])
+
+  const flowNodes = useMemo<Array<Node<ErdTableNodeData>>>(() => {
+    const activePath = selectedRelationId ? erdRelations.find((relation) => relation.id === selectedRelationId) : null
+
+    return draggableNodes.map((node) => {
+      const table = tableById.get(node.id)
+      const isSelected = node.id === selectedTableId
+      const isConnected = Boolean(activePath && (node.id === activePath.source || node.id === activePath.target))
+
+      if (!table) {
+        return node
+      }
+
+      return {
+        ...node,
+        draggable: true,
+        data: {
+          ...node.data,
           id: table.id,
           name: table.name,
           columns: table.columns,
@@ -430,14 +503,15 @@ function App() {
           onSelect: handleSelectTable,
           onHover: handleHoverTable,
         },
-        style: { width },
       }
     })
-  }, [handleHoverTable, handleSelectTable, selectedRelationId, selectedTableId])
+  }, [draggableNodes, handleHoverTable, handleSelectTable, selectedRelationId, selectedTableId])
 
   const flowEdges = useMemo<Array<Edge>>(() => {
+    const positionById = new Map(draggableNodes.map((node) => [node.id, node.position]))
+
     return erdRelations.map((relation) => {
-      const handles = edgeHandles(relation.source, relation.target)
+      const handles = edgeHandles(positionById.get(relation.source), positionById.get(relation.target))
       const isSelected = selectedRelationId === relation.id
 
       return {
@@ -469,7 +543,7 @@ function App() {
         },
       }
     })
-  }, [selectedRelationId])
+  }, [draggableNodes, selectedRelationId])
 
   return (
     <div
@@ -558,10 +632,11 @@ function App() {
               zoomOnScroll={false}
               zoomOnPinch={false}
               zoomOnDoubleClick={false}
-              nodesDraggable={false}
+              nodesDraggable
               selectionOnDrag={false}
               nodesConnectable={false}
               elementsSelectable
+              onNodesChange={onDraggableNodesChange}
               onNodeClick={(_, node) => {
                 setSelectedTableId(node.id)
                 setSelectedRelationId(null)
@@ -591,15 +666,15 @@ function App() {
               <Background
                 id="erd-grid-minor"
                 variant={BackgroundVariant.Lines}
-                gap={24}
-                lineWidth={0.7}
+                gap={18}
+                lineWidth={0.45}
                 color="var(--erd-grid-minor)"
               />
               <Background
                 id="erd-grid-major"
                 variant={BackgroundVariant.Lines}
-                gap={96}
-                lineWidth={1.15}
+                gap={72}
+                lineWidth={0.8}
                 color="var(--erd-grid-major)"
               />
             </ReactFlow>

@@ -7,8 +7,8 @@
   --bg-elevated: #ffffff;
   --grid-minor: rgba(43, 72, 106, 0.055);
   --grid-major: rgba(33, 62, 94, 0.11);
-  --erd-grid-minor: rgba(45, 78, 112, 0.1);
-  --erd-grid-major: rgba(28, 61, 98, 0.2);
+  --erd-grid-minor: rgba(45, 78, 112, 0.055);
+  --erd-grid-major: rgba(28, 61, 98, 0.11);
   --ink: #111827;
   --ink-muted: #3a4a60;
   --ink-subtle: #6b7280;
@@ -50,8 +50,8 @@
   --bg-elevated: #2a2a2a;
   --grid-minor: rgba(255, 255, 255, 0.03);
   --grid-major: rgba(255, 255, 255, 0.06);
-  --erd-grid-minor: rgba(255, 255, 255, 0.06);
-  --erd-grid-major: rgba(245, 158, 11, 0.16);
+  --erd-grid-minor: rgba(255, 255, 255, 0.03);
+  --erd-grid-major: rgba(245, 158, 11, 0.09);
   --ink: #fafafa;
   --ink-muted: #a3a3a3;
   --ink-subtle: #737373;
